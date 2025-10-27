@@ -1,0 +1,14 @@
+# Pasang V-Environment
+code:
+D:\Project\Python\Kripto-Frekuensi\.venv\Scripts\activate
+
+# Download Libs
+code:
+pip install matplotlib numpy
+
+# Jalankan kode
+CMD 1 Code:
+python encrypth_text.py
+
+CMD 2 Code:
+python analysis_frequent_text.py
