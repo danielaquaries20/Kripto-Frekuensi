@@ -61,21 +61,7 @@ COMMON_WORDS_EN = [
     "THIS",
 ]
 
-# Versi sederhana untuk bahasa Indonesia (opsional, dapat ditambah)
-COMMON_BIGRAMS_ID = [
-    "AN",
-    "NG",
-    "ER",
-    "DA",
-    "KA",
-    "YA",
-    "LA",
-    "TU",
-    "DI",
-    "KE",
-    "SA",
-    "TA",
-]
+COMMON_BIGRAMS_ID = ["AN", "NG", "DA", "KA", "YA", "LA", "TU", "DI", "KE", "SA", "TA"]
 COMMON_TRIGRAMS_ID = ["DAN", "YANG", "ING", "KAN", "NGA", "ANG", "BER", "TER"]
 COMMON_WORDS_ID = [
     "DAN",
@@ -146,7 +132,6 @@ def ngram_analysis(text, n=2, top_k=10):
 
 
 def score_text_rich(text, lang="EN"):
-    """Skor bahasa kaya: bigram + trigram + kata umum (berbobot)."""
     text = text.upper()
     if lang.upper() == "ID":
         bigrams, trigrams, words = (
@@ -171,7 +156,7 @@ def score_text_rich(text, lang="EN"):
 
 
 # =========================
-# Caesar cipher attack
+# Attack utilitas
 # =========================
 
 
@@ -198,13 +183,7 @@ def caesar_attack(ciphertext, lang="EN"):
     return best_shift, best_text, best_score, results
 
 
-# =========================
-# Random substitution attack
-# =========================
-
-
 def decrypt_with_map_upper(text, mapping):
-    """Dekripsi memakai map huruf uppercase (plaintext uppercase)."""
     out = []
     for ch in text.upper():
         if ch in string.ascii_uppercase:
@@ -214,56 +193,34 @@ def decrypt_with_map_upper(text, mapping):
     return "".join(out)
 
 
-def random_substitution_attack(
-    ciphertext, iterations=8000, lang="EN", initial_mapping=None
-):
-    """
-    Heuristik hill-climbing:
-    - Jika initial_mapping diberikan, digunakan sebagai start; sisanya diisi random.
-    - Mengembalikan (best_plaintext, best_score, best_mapping).
-    """
-    letters = list(string.ascii_uppercase)
-    # Inisialisasi mapping
-    if initial_mapping:
-        used = set(initial_mapping.values())
-        unused = [l for l in letters if l not in used]
-        mapping = dict(initial_mapping)
-        for c in letters:
-            if c not in mapping:
-                mapping[c] = unused.pop() if unused else random.choice(letters)
-    else:
-        shuffled = letters[:]
-        random.shuffle(shuffled)
-        mapping = dict(zip(letters, shuffled))
-
-    best_mapping = mapping
-    best_plain = decrypt_with_map_upper(ciphertext, best_mapping)
-    best_score = score_text_rich(best_plain, lang=lang)
-
-    for _ in range(iterations):
-        # Swap dua cipher key untuk perubahan kecil
-        a, b = random.sample(letters, 2)
-        new_mapping = best_mapping.copy()
-        new_mapping[a], new_mapping[b] = new_mapping[b], new_mapping[a]
-
-        new_plain = decrypt_with_map_upper(ciphertext, new_mapping)
-        new_score = score_text_rich(new_plain, lang=lang)
-
-        if new_score > best_score:
-            best_mapping, best_plain, best_score = new_mapping, new_plain, new_score
-
-    return best_plain, best_score, best_mapping
+# =========================
+# Hint dinamis berposisi
+# =========================
 
 
-def auto_tune_attack(ciphertext, hint_mapping, iterations=8000, lang="EN"):
-    """
-    Auto-tune: mulai dari hint frekuensi sebagai initial mapping,
-    lalu lakukan hill-climbing dengan skor bahasa kaya.
-    Mengembalikan (best_plaintext, best_score, best_mapping).
-    """
-    return random_substitution_attack(
-        ciphertext, iterations=iterations, lang=lang, initial_mapping=hint_mapping
-    )
+def find_trigram_recommendations(ciphertext, preview, target_trigrams):
+    recs = []
+    upper_preview = preview.upper()
+    upper_cipher = ciphertext.upper()
+    n = 3
+    for tg in target_trigrams:
+        for i in range(len(upper_preview) - n + 1):
+            segment = upper_preview[i : i + n]
+            # hitung huruf yang cocok
+            matches = sum(1 for sp, tp in zip(segment, tg) if sp == tp)
+            dots = segment.count("·")
+            if (
+                matches >= 1 and matches + dots == 3
+            ):  # minimal 1 cocok, sisanya boleh kosong
+                for j, (sp, tp) in enumerate(zip(segment, tg)):
+                    if sp == "·":
+                        cipher_char = upper_cipher[i + j]
+                        if cipher_char in string.ascii_uppercase:
+                            recs.append(
+                                f"Segmen '{segment}' (pos {i}-{i+n-1}) mirip '{tg}'. "
+                                f"Cipher '{cipher_char}' kemungkinan = '{tp}'."
+                            )
+    return recs
 
 
 # =========================
@@ -274,143 +231,248 @@ def auto_tune_attack(ciphertext, hint_mapping, iterations=8000, lang="EN"):
 class SubstitutionGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Analisis & Attack Substitusi (Auto-Tune)")
+        self.root.title("🔐 Subtitution Analysis")
 
-        # State utama
         self.ciphertext = ""
-        self.mapping = {}  # mapping manual user (persist sepanjang sesi)
-        self.hint_mapping = {}  # mapping hasil saran awal (frekuensi)
-        self.attack_preview = (
-            ""  # plaintext hasil attack (tidak mengubah mapping manual)
-        )
-        self.attack_mapping = {}  # mapping hasil attack (bisa di-merge)
-        self.lang = tk.StringVar(value="EN")  # Bahasa target skor (EN/ID)
+        self.mapping = {}
+        self.hint_mapping = {}
+        self.attack_preview = ""
+        self.attack_mapping = {}
+        self.lang = tk.StringVar(value="EN")
 
         # Layout utama kiri-kanan
         main = tk.PanedWindow(root, sashrelief="raised", sashwidth=6)
         main.pack(fill="both", expand=True)
 
-        left = tk.Frame(main)
-        right = tk.Frame(main)
+        left = tk.Frame(main, bg="#fafafa")
+        right = tk.Frame(main, bg="#ffffff")
         main.add(left, minsize=420)
         main.add(right, minsize=380)
 
-        # Pengaturan bahasa skor
-        lang_frame = tk.Frame(left)
-        lang_frame.pack(fill="x")
-        tk.Label(lang_frame, text="Bahasa skor:").pack(side="left")
+        # Bahasa skor
+        lang_frame = tk.LabelFrame(
+            left,
+            text="🌐 Bahasa Target",
+            bg="#bbdefb",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
+        )
+        lang_frame.pack(fill="x", pady=5)
         ttk.Combobox(
             lang_frame, textvariable=self.lang, values=["EN", "ID"], width=5
-        ).pack(side="left")
+        ).pack(side="left", padx=5)
 
-        # Input ciphertext
-        tk.Label(left, text="Ciphertext:").pack(anchor="w")
-        self.input_text = tk.Text(left, height=8)
+        # Input
+        input_frame = tk.LabelFrame(
+            left,
+            text="📝 Input Ciphertext",
+            bg="#e3f2fd",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
+        )
+        input_frame.pack(fill="x", pady=5)
+        self.input_text = tk.Text(
+            input_frame, height=6, font=("Consolas", 11), bg="#ffffff", fg="#000000"
+        )
         self.input_text.pack(fill="both", expand=True)
 
-        # Toolbar analisis & attack
-        btn_frame = tk.Frame(left)
-        btn_frame.pack(fill="x", pady=4)
-        tk.Button(btn_frame, text="Analisis", command=self.analyze).pack(side="left")
+        # Analisis
+        analysis_frame = tk.LabelFrame(
+            left,
+            text="🔍 Analisis & Hint",
+            bg="#e8f5e9",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
+        )
+        analysis_frame.pack(fill="x", pady=5)
         tk.Button(
-            btn_frame, text="Histogram (cipher)", command=self.show_histogram_cipher
-        ).pack(side="left")
-        tk.Button(btn_frame, text="Hint Lanjutan", command=self.advanced_hint).pack(
-            side="left"
-        )
-        tk.Button(btn_frame, text="Caesar Attack", command=self.run_caesar_attack).pack(
-            side="left"
-        )
-        tk.Button(btn_frame, text="Random Attack", command=self.run_random_attack).pack(
-            side="left"
-        )
-        tk.Button(btn_frame, text="Auto-Tune Attack", command=self.run_auto_tune).pack(
-            side="left"
-        )
+            analysis_frame,
+            text="Analisis",
+            bg="#4caf50",
+            fg="white",
+            command=self.analyze,
+        ).pack(side="left", padx=3)
+        tk.Button(
+            analysis_frame,
+            text="Hint Lanjutan",
+            bg="#81c784",
+            fg="white",
+            command=self.advanced_hint,
+        ).pack(side="left", padx=3)
+        tk.Button(
+            analysis_frame,
+            text="Histogram (cipher)",
+            bg="#66bb6a",
+            fg="white",
+            command=self.show_histogram_cipher,
+        ).pack(side="left", padx=3)
 
-        # Mapping manual + simpan/muat
-        map_frame = tk.Frame(left)
-        map_frame.pack(fill="x", pady=6)
-        tk.Label(map_frame, text="Mapping manual: Cipher → Plain").grid(
-            row=0, column=0, columnspan=8, sticky="w"
+        # Attack
+        attack_frame = tk.LabelFrame(
+            left,
+            text="⚡ Percobaan Dekripsi",
+            bg="#fff3e0",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
         )
-        tk.Label(map_frame, text="Cipher").grid(row=1, column=0)
+        attack_frame.pack(fill="x", pady=5)
+        tk.Button(
+            attack_frame,
+            text="Caesar Attack",
+            bg="#fb8c00",
+            fg="white",
+            command=self.run_caesar_attack,
+        ).pack(side="left", padx=3)
+        tk.Button(
+            attack_frame,
+            text="Coba Tebakan Acak",
+            bg="#f57c00",
+            fg="white",
+            command=self.run_random_attack,
+        ).pack(side="left", padx=3)
+        tk.Button(
+            attack_frame,
+            text="Optimasi Otomatis",
+            bg="#ef6c00",
+            fg="white",
+            command=self.run_auto_tune,
+        ).pack(side="left", padx=3)
+
+        # Mapping manual
+        map_frame = tk.LabelFrame(
+            left,
+            text="✍️ Mapping Manual",
+            bg="#ede7f6",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
+        )
+        map_frame.pack(fill="x", pady=5)
         self.cipher_var = tk.StringVar()
-        self.cipher_box = ttk.Combobox(
+        self.plain_var = tk.StringVar()
+        ttk.Label(map_frame, text="Cipher").grid(row=0, column=0, padx=2, pady=2)
+        ttk.Combobox(
             map_frame,
             textvariable=self.cipher_var,
             values=list(string.ascii_uppercase),
             width=5,
-        )
-        self.cipher_box.grid(row=1, column=1)
-        tk.Label(map_frame, text="→ Plain").grid(row=1, column=2)
-        self.plain_var = tk.StringVar()
-        self.plain_box = ttk.Combobox(
+        ).grid(row=0, column=1, padx=2, pady=2)
+        ttk.Label(map_frame, text="→ Plain").grid(row=1, column=0, padx=2, pady=2)
+        ttk.Combobox(
             map_frame,
             textvariable=self.plain_var,
             values=list(string.ascii_uppercase),
             width=5,
-        )
-        self.plain_box.grid(row=1, column=3)
-        tk.Button(map_frame, text="Map", command=self.update_mapping).grid(
-            row=1, column=4
-        )
-        tk.Button(map_frame, text="Reset mapping", command=self.reset_mapping).grid(
-            row=1, column=5
-        )
+        ).grid(row=1, column=1, padx=2, pady=2)
+        tk.Button(
+            map_frame,
+            text="Map",
+            bg="#7e57c2",
+            fg="white",
+            width=10,
+            command=self.update_mapping,
+        ).grid(row=0, column=4, padx=2, pady=2)
+        tk.Button(
+            map_frame,
+            text="Reset",
+            bg="#d32f2f",
+            fg="white",
+            width=10,
+            command=self.reset_mapping,
+        ).grid(row=0, column=5, padx=2, pady=2)
+        tk.Button(
+            map_frame,
+            text="Simpan",
+            bg="#1976d2",
+            fg="white",
+            width=10,
+            command=self.save_mapping,
+        ).grid(row=1, column=4, padx=2, pady=2)
+        tk.Button(
+            map_frame,
+            text="Muat",
+            bg="#0288d1",
+            fg="white",
+            width=10,
+            command=self.load_mapping,
+        ).grid(row=1, column=5, padx=2, pady=2)
 
-        tk.Button(map_frame, text="Simpan mapping", command=self.save_mapping).grid(
-            row=2, column=4, pady=4
+        # Preview manual
+        preview_frame = tk.LabelFrame(
+            left,
+            text="📖 Preview Dekripsi (Mapping Manual)",
+            bg="#fffde7",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
         )
-        tk.Button(map_frame, text="Muat mapping", command=self.load_mapping).grid(
-            row=2, column=5, pady=4
+        preview_frame.pack(fill="both", expand=True, pady=5)
+        self.output_text = tk.Text(
+            preview_frame, height=10, bg="#fffde7", fg="#000000", font=("Consolas", 11)
         )
-
-        # Preview manual (hint + mapping manual)
-        tk.Label(left, text="Preview dekripsi (mapping manual):").pack(anchor="w")
-        self.output_text = tk.Text(left, height=12, bg="#f0f0f0")
         self.output_text.pack(fill="both", expand=True)
 
-        # Panel kanan: hasil attack & analisisnya
-        tk.Label(right, text="Hasil attack (tidak mengubah mapping manual):").pack(
-            anchor="w"
+        # Panel kanan hasil
+        result_frame = tk.LabelFrame(
+            right,
+            text="📊 Hasil Attack & Analisis",
+            bg="#fff8e1",
+            fg="#000000",
+            font=("Segoe UI", 10, "bold"),
         )
-        self.attack_text = tk.Text(right, height=12, bg="#fff8e1")
+        result_frame.pack(fill="both", expand=True, pady=5)
+        self.attack_text = tk.Text(
+            result_frame, height=16, bg="#fff8e1", fg="#000000", font=("Consolas", 11)
+        )
         self.attack_text.pack(fill="both", expand=True)
 
-        ana_frame = tk.Frame(right)
+        ana_frame = tk.Frame(right, bg="#fff8e1")
         ana_frame.pack(fill="x", pady=4)
         tk.Button(
             ana_frame,
             text="Analisis frekuensi hasil attack",
+            bg="#8d6e63",
+            fg="white",
             command=self.analyze_attack_preview,
-        ).pack(side="left")
+        ).pack(side="left", padx=3, pady=2)
         tk.Button(
             ana_frame,
             text="Histogram (attack plaintext)",
+            bg="#8d6e63",
+            fg="white",
             command=self.show_histogram_attack,
-        ).pack(side="left")
+        ).pack(side="left", padx=3, pady=2)
         tk.Button(
             ana_frame,
-            text="Terapkan attack ke preview manual",
+            text="Terapkan attack → preview manual",
+            bg="#6d4c41",
+            fg="white",
             command=self.apply_attack_to_preview,
-        ).pack(side="left")
+        ).pack(side="left", padx=3, pady=2)
         tk.Button(
             ana_frame,
             text="Gabungkan mapping attack → manual",
+            bg="#6d4c41",
+            fg="white",
             command=self.merge_attack_mapping,
-        ).pack(side="left")
+        ).pack(side="left", padx=3, pady=2)
 
-        # Status
+        # Status & progress
         self.status = tk.StringVar(value="Status: siap")
-        tk.Label(root, textvariable=self.status, anchor="w").pack(fill="x")
+        status_frame = tk.Frame(root, bg="#fafafa")
+        status_frame.pack(fill="x")
+        tk.Label(
+            status_frame, textvariable=self.status, bg="#fafafa", fg="#000000"
+        ).pack(side="left", padx=6, pady=4)
+
+        self.progress = ttk.Progressbar(
+            root, orient="horizontal", length=200, mode="determinate"
+        )
+        self.progress.pack(fill="x", padx=6, pady=4)
 
     # ====== Utilitas UI ======
     def set_status(self, text):
         self.status.set(f"Status: {text}")
 
     def update_preview_manual(self):
-        # Kombinasi: hint_mapping sebagai baseline, di-override oleh mapping manual user
         mapping_effective = dict(self.hint_mapping)
         mapping_effective.update(self.mapping)
         decrypted = apply_mapping(self.ciphertext, mapping_effective)
@@ -427,7 +489,7 @@ class SubstitutionGUI:
         self.hint_mapping = suggest_mapping(counter)
         self.update_preview_manual()
         self.set_status(
-            f"Analisis selesai. Total huruf: {total}. Hint awal diterapkan (bisa dioverride manual)."
+            f"Analisis selesai. Total huruf: {total}. Hint awal diterapkan (bisa dioverride)."
         )
 
     def show_histogram_cipher(self):
@@ -436,14 +498,112 @@ class SubstitutionGUI:
                 "Peringatan", "Analisis dulu sebelum menampilkan histogram."
             )
             return
-        counter, _ = frequency_analysis(self.ciphertext)
-        letters = list(string.ascii_uppercase)
-        values = [counter.get(l, 0) for l in letters]
+
+        counter, total = frequency_analysis(self.ciphertext)
+
+        # Urutkan berdasarkan frekuensi
+        items = sorted(counter.items(), key=lambda x: -x[1])
+        letters = [l for l, _ in items]
+        values = [counter[l] for l in letters]
+
         plt.figure(figsize=(12, 5))
-        plt.bar(letters, values, color="#4C78A8")
-        plt.title("Histogram Frekuensi Huruf (Ciphertext)")
+        bars = plt.bar(letters, values, color="#4C78A8")
+
+        # Warnai top-5
+        for i, bar in enumerate(bars):
+            if i < 5:
+                bar.set_color("#f28e2b")
+
+        # Tambahkan label persentase
+        for i, v in enumerate(values):
+            plt.text(i, v + 0.5, f"{v/total*100:.1f}%", ha="center", fontsize=8)
+
+        plt.title("Histogram Frekuensi Huruf (Ciphertext, diurutkan)")
         plt.xlabel("Huruf")
         plt.ylabel("Jumlah")
+
+        # Overlay distribusi bahasa target
+        lang = self.lang.get().upper()
+        if lang == "EN":
+            english_freq = {
+                "E": 12.7,
+                "T": 9.1,
+                "A": 8.2,
+                "O": 7.5,
+                "I": 7.0,
+                "N": 6.7,
+                "S": 6.3,
+                "H": 6.1,
+                "R": 6.0,
+                "D": 4.3,
+                "L": 4.0,
+                "C": 2.8,
+                "U": 2.8,
+                "M": 2.4,
+                "W": 2.4,
+                "F": 2.2,
+                "G": 2.0,
+                "Y": 2.0,
+                "P": 1.9,
+                "B": 1.5,
+                "V": 1.0,
+                "K": 0.8,
+                "J": 0.15,
+                "X": 0.15,
+                "Q": 0.1,
+                "Z": 0.07,
+            }
+            ref_values = [english_freq.get(l, 0) / 100 * total for l in letters]
+            plt.plot(
+                letters,
+                ref_values,
+                color="red",
+                marker="o",
+                linestyle="--",
+                label="Distribusi EN",
+            )
+            plt.legend()
+
+        elif lang == "ID":
+            indonesian_freq = {
+                "A": 19.0,
+                "N": 15.0,
+                "I": 9.0,
+                "E": 9.0,
+                "U": 8.0,
+                "T": 7.0,
+                "R": 6.0,
+                "K": 6.0,
+                "S": 5.0,
+                "D": 4.0,
+                "M": 4.0,
+                "L": 3.0,
+                "O": 3.0,
+                "G": 2.0,
+                "B": 2.0,
+                "P": 2.0,
+                "H": 1.0,
+                "Y": 1.0,
+                "J": 1.0,
+                "C": 1.0,
+                "W": 1.0,
+                "F": 0.5,
+                "Z": 0.5,
+                "V": 0.2,
+                "X": 0.1,
+                "Q": 0.1,
+            }
+            ref_values = [indonesian_freq.get(l, 0) / 100 * total for l in letters]
+            plt.plot(
+                letters,
+                ref_values,
+                color="red",
+                marker="o",
+                linestyle="--",
+                label="Distribusi ID",
+            )
+            plt.legend()
+
         plt.show()
 
     def advanced_hint(self):
@@ -453,39 +613,42 @@ class SubstitutionGUI:
             )
             return
 
-        # Pilih dataset sesuai bahasa
+        # Preview berdasarkan mapping saat ini
+        mapping_effective = dict(self.hint_mapping)
+        mapping_effective.update(self.mapping)
+        preview = apply_mapping(self.ciphertext, mapping_effective)
+
+        # Dataset sesuai bahasa
         if self.lang.get().upper() == "ID":
-            bigram_list = COMMON_BIGRAMS_ID
             trigram_list = COMMON_TRIGRAMS_ID
         else:
-            bigram_list = COMMON_BIGRAMS_EN
             trigram_list = COMMON_TRIGRAMS_EN
 
-        # Hitung frekuensi n-gram dari ciphertext
+        # Rekomendasi spesifik posisi & huruf cipher
+        trigram_recs = find_trigram_recommendations(
+            self.ciphertext, preview, trigram_list
+        )
+
+        # Ringkasan ngram top (ciphertext)
         bigrams = ngram_analysis(self.ciphertext, n=2, top_k=10)
         trigrams = ngram_analysis(self.ciphertext, n=3, top_k=10)
 
-        msg = "=== Bigram Ciphertext Teratas ===\n"
+        msg = "=== Saran Hint Dinamis (berposisi) ===\n"
+        if trigram_recs:
+            msg += "\n".join("- " + r for r in trigram_recs) + "\n"
+        else:
+            msg += "- Belum ada segmen trigram yang bisa direkomendasikan.\n"
+        msg += "\n=== Bigram Ciphertext Teratas ===\n"
         for bg, count in bigrams:
             msg += f"{bg} : {count}\n"
-
         msg += "\n=== Trigram Ciphertext Teratas ===\n"
         for tg, count in trigrams:
             msg += f"{tg} : {count}\n"
 
-        # Tambahkan saran berdasarkan bahasa
-        hint_lines = []
-        if trigram_list:
-            hint_lines.append(
-                f"Trigram umum bahasa {self.lang.get()}: {', '.join(trigram_list[:5])}"
-            )
-        if bigram_list:
-            hint_lines.append(
-                f"Bigram umum bahasa {self.lang.get()}: {', '.join(bigram_list[:5])}"
-            )
-
-        if hint_lines:
-            msg += "\nSaran:\n- " + "\n- ".join(hint_lines)
+        trigrams_preview = ngram_analysis(preview, n=3, top_k=10)
+        msg += "\n=== Trigram Preview (plaintext sementara) ===\n"
+        for tg, count in trigrams_preview:
+            msg += f"{tg} : {count}\n"
 
         messagebox.showinfo("Hint Lanjutan", msg)
 
@@ -496,7 +659,7 @@ class SubstitutionGUI:
         if c in string.ascii_uppercase and p in string.ascii_uppercase:
             self.mapping[c] = p
             self.update_preview_manual()
-            self.set_status(f"Mapping diperbarui: {c} -> {p}")
+            self.set_status(f"Mapping diperbarui: {c} → {p}")
         else:
             messagebox.showerror("Error", "Pilih huruf A–Z untuk mapping.")
 
@@ -525,7 +688,6 @@ class SubstitutionGUI:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Validasi sederhana
             for k, v in data.items():
                 if k not in string.ascii_uppercase or v not in string.ascii_uppercase:
                     raise ValueError("Format mapping tidak valid.")
@@ -535,7 +697,7 @@ class SubstitutionGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Gagal memuat mapping: {e}")
 
-    # ====== Attack (hasil & mapping terpisah) ======
+    # ====== Attack (progress bar di GUI) ======
     def run_caesar_attack(self):
         self.ciphertext = self.input_text.get("1.0", "end").strip()
         if not self.ciphertext:
@@ -545,7 +707,7 @@ class SubstitutionGUI:
             self.ciphertext, lang=self.lang.get()
         )
         self.attack_preview = best_text
-        self.attack_mapping = {}  # Caesar tidak menggunakan mapping A-Z penuh
+        self.attack_mapping = {}  # Caesar tidak menghasilkan mapping substitusi penuh
         self.attack_text.delete("1.0", "end")
         self.attack_text.insert(
             "1.0",
@@ -572,9 +734,42 @@ class SubstitutionGUI:
                 return
         except Exception:
             iterations = 12000
-        best_plain, best_score, best_mapping = random_substitution_attack(
-            self.ciphertext, iterations=iterations, lang=self.lang.get()
-        )
+
+        # Progress bar setup
+        self.progress.pack(fill="x", padx=6, pady=4)
+        self.progress["maximum"] = iterations
+        self.progress["value"] = 0
+        self.root.update_idletasks()
+
+        # Inisialisasi hill-climbing (random)
+        letters = list(string.ascii_uppercase)
+        shuffled = letters[:]
+        random.shuffle(shuffled)
+        mapping = dict(zip(letters, shuffled))
+
+        best_mapping = mapping
+        best_plain = decrypt_with_map_upper(self.ciphertext, best_mapping)
+        best_score = score_text_rich(best_plain, lang=self.lang.get())
+
+        for i in range(iterations):
+            a, b = random.sample(letters, 2)
+            new_mapping = best_mapping.copy()
+            new_mapping[a], new_mapping[b] = new_mapping[b], new_mapping[a]
+
+            new_plain = decrypt_with_map_upper(self.ciphertext, new_mapping)
+            new_score = score_text_rich(new_plain, lang=self.lang.get())
+
+            if new_score > best_score:
+                best_mapping, best_plain, best_score = new_mapping, new_plain, new_score
+
+            if i % 500 == 0:
+                self.progress["value"] = i
+                self.root.update_idletasks()
+
+        self.progress["value"] = iterations
+        self.root.update_idletasks()
+        self.progress.pack_forget()
+
         self.attack_preview = best_plain
         self.attack_mapping = best_mapping
         self.attack_text.delete("1.0", "end")
@@ -608,12 +803,45 @@ class SubstitutionGUI:
                 return
         except Exception:
             iterations = 15000
-        best_plain, best_score, best_mapping = auto_tune_attack(
-            self.ciphertext,
-            self.hint_mapping,
-            iterations=iterations,
-            lang=self.lang.get(),
-        )
+
+        # Progress bar setup
+        self.progress.pack(fill="x", padx=6, pady=4)
+        self.progress["maximum"] = iterations
+        self.progress["value"] = 0
+        self.root.update_idletasks()
+
+        # Inisialisasi dari hint mapping
+        letters = list(string.ascii_uppercase)
+        used = set(self.hint_mapping.values())
+        unused = [l for l in letters if l not in used]
+        mapping = dict(self.hint_mapping)
+        for c in letters:
+            if c not in mapping:
+                mapping[c] = unused.pop() if unused else random.choice(letters)
+
+        best_mapping = mapping
+        best_plain = decrypt_with_map_upper(self.ciphertext, best_mapping)
+        best_score = score_text_rich(best_plain, lang=self.lang.get())
+
+        for i in range(iterations):
+            a, b = random.sample(letters, 2)
+            new_mapping = best_mapping.copy()
+            new_mapping[a], new_mapping[b] = new_mapping[b], new_mapping[a]
+
+            new_plain = decrypt_with_map_upper(self.ciphertext, new_mapping)
+            new_score = score_text_rich(new_plain, lang=self.lang.get())
+
+            if new_score > best_score:
+                best_mapping, best_plain, best_score = new_mapping, new_plain, new_score
+
+            if i % 500 == 0:
+                self.progress["value"] = i
+                self.root.update_idletasks()
+
+        self.progress["value"] = iterations
+        self.root.update_idletasks()
+        self.progress.pack_forget()
+
         self.attack_preview = best_plain
         self.attack_mapping = best_mapping
         self.attack_text.delete("1.0", "end")
@@ -628,10 +856,8 @@ class SubstitutionGUI:
         if not self.attack_preview:
             messagebox.showinfo("Info", "Belum ada hasil attack untuk dianalisis.")
             return
-        # Cipher stats
         c_counter, c_total = frequency_analysis(self.ciphertext)
         c_prop = proportions(c_counter, c_total)
-        # Attack plaintext stats
         a_counter, a_total = frequency_analysis(self.attack_preview)
         a_prop = proportions(a_counter, a_total)
 
@@ -651,21 +877,118 @@ class SubstitutionGUI:
                 "Info", "Belum ada hasil attack untuk ditampilkan histogramnya."
             )
             return
-        counter, _ = frequency_analysis(self.attack_preview)
-        letters = list(string.ascii_uppercase)
-        values = [counter.get(l, 0) for l in letters]
+
+        counter, total = frequency_analysis(self.attack_preview)
+
+        # Urutkan berdasarkan frekuensi
+        items = sorted(counter.items(), key=lambda x: -x[1])
+        letters = [l for l, _ in items]
+        values = [counter[l] for l in letters]
+
         plt.figure(figsize=(12, 5))
-        plt.bar(letters, values, color="#F28E2B")
-        plt.title("Histogram Frekuensi Huruf (Attack plaintext)")
+        bars = plt.bar(letters, values, color="#4C78A8")
+
+        # Warnai top-5
+        for i, bar in enumerate(bars):
+            if i < 5:
+                bar.set_color("#f28e2b")
+
+        # Tambahkan label persentase
+        for i, v in enumerate(values):
+            plt.text(i, v + 0.5, f"{v/total*100:.1f}%", ha="center", fontsize=8)
+
+        plt.title("Histogram Frekuensi Huruf (Plaintext hasil attack, diurutkan)")
         plt.xlabel("Huruf")
         plt.ylabel("Jumlah")
+
+        # Overlay distribusi bahasa target
+        lang = self.lang.get().upper()
+        if lang == "EN":
+            english_freq = {
+                "E": 12.7,
+                "T": 9.1,
+                "A": 8.2,
+                "O": 7.5,
+                "I": 7.0,
+                "N": 6.7,
+                "S": 6.3,
+                "H": 6.1,
+                "R": 6.0,
+                "D": 4.3,
+                "L": 4.0,
+                "C": 2.8,
+                "U": 2.8,
+                "M": 2.4,
+                "W": 2.4,
+                "F": 2.2,
+                "G": 2.0,
+                "Y": 2.0,
+                "P": 1.9,
+                "B": 1.5,
+                "V": 1.0,
+                "K": 0.8,
+                "J": 0.15,
+                "X": 0.15,
+                "Q": 0.1,
+                "Z": 0.07,
+            }
+            ref_values = [english_freq.get(l, 0) / 100 * total for l in letters]
+            plt.plot(
+                letters,
+                ref_values,
+                color="red",
+                marker="o",
+                linestyle="--",
+                label="Distribusi EN",
+            )
+            plt.legend()
+
+        elif lang == "ID":
+            indonesian_freq = {
+                "A": 19.0,
+                "N": 15.0,
+                "I": 9.0,
+                "E": 9.0,
+                "U": 8.0,
+                "T": 7.0,
+                "R": 6.0,
+                "K": 6.0,
+                "S": 5.0,
+                "D": 4.0,
+                "M": 4.0,
+                "L": 3.0,
+                "O": 3.0,
+                "G": 2.0,
+                "B": 2.0,
+                "P": 2.0,
+                "H": 1.0,
+                "Y": 1.0,
+                "J": 1.0,
+                "C": 1.0,
+                "W": 1.0,
+                "F": 0.5,
+                "Z": 0.5,
+                "V": 0.2,
+                "X": 0.1,
+                "Q": 0.1,
+            }
+            ref_values = [indonesian_freq.get(l, 0) / 100 * total for l in letters]
+            plt.plot(
+                letters,
+                ref_values,
+                color="red",
+                marker="o",
+                linestyle="--",
+                label="Distribusi ID",
+            )
+            plt.legend()
+
         plt.show()
 
     def apply_attack_to_preview(self):
         if not self.attack_preview:
             messagebox.showinfo("Info", "Belum ada hasil attack untuk diterapkan.")
             return
-        # Terapkan hasil attack ke panel preview manual (hanya mengganti teks, tidak mengubah mapping)
         self.output_text.delete("1.0", "end")
         self.output_text.insert("1.0", self.attack_preview)
         self.set_status(
@@ -678,7 +1001,6 @@ class SubstitutionGUI:
                 "Info", "Tidak ada mapping dari hasil attack untuk digabungkan."
             )
             return
-        # Gabungkan mapping attack → manual (manual dapat dioverride lagi)
         self.mapping.update(self.attack_mapping)
         self.update_preview_manual()
         self.set_status("Mapping attack digabungkan ke mapping manual.")

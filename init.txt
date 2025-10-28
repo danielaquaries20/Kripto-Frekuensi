@@ -1,6 +1,6 @@
 # Pasang V-Environment
 code:
-D:\Project\Python\Kripto-Frekuensi\.venv\Scripts\activate
+.venv\Scripts\activate
 
 # Download Libs
 code:
