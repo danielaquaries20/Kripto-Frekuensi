@@ -8,7 +8,9 @@ from collections import Counter
 # --- Fungsi substitusi sederhana ---
 def generate_key():
     alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    key = "QWERTYUIOPASDFGHJKLZXCVBNM"  # contoh key
+    key = "CDEFGHIJKLMNOPQRSTUVWXYZAB"  # contoh key geser 2
+    key2 = "TYUIOPASDFGHJKLZXCVBNMQWER"
+    key3 = "QWERTYUIOPASDFGHJKLZXCVBNM"  # contoh key
     return dict(zip(alphabet, key))
 
 
@@ -124,7 +126,7 @@ def copy_cipher():
     if cipher:
         root.clipboard_clear()
         root.clipboard_append(cipher)
-        root.update()  # supaya clipboard langsung terisi
+        root.update()  
         messagebox.showinfo("Disalin", "Ciphertext berhasil disalin ke clipboard!")
     else:
         messagebox.showwarning("Kosong", "Tidak ada ciphertext untuk disalin.")
@@ -144,11 +146,9 @@ label = tk.Label(
 )
 label.pack(anchor="w")
 
-# --- Input multi-line ---
 entry = tk.Text(frame, width=80, height=6, font=("Consolas", 12), wrap="word")
 entry.pack(pady=5)
 
-# --- Tombol dengan warna ---
 button_frame = tk.Frame(frame, bg="#f5f7fa")
 button_frame.pack(pady=10)
 
@@ -188,7 +188,6 @@ button_copy = tk.Button(
 )
 button_copy.grid(row=0, column=2, padx=10)
 
-# --- Output multi-line ---
 label_result = tk.Label(
     frame, text="Ciphertext:", font=("Segoe UI", 11, "bold"), bg="#f5f7fa"
 )

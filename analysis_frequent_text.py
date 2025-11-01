@@ -2,6 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import string, collections, random, json
 import matplotlib.pyplot as plt
+from tkinter import simpledialog
+
+
+# ===================================================== #
+# || Deklarasi dan Inisialisasi Data yang diperlukan || #
+# ===================================================== #
 
 # =========================
 # Konfigurasi & data bahasa
@@ -260,7 +266,7 @@ class SubstitutionGUI:
         lang_frame.pack(fill="x", pady=5)
         ttk.Combobox(
             lang_frame, textvariable=self.lang, values=["EN", "ID"], width=5
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=10, pady=10)
 
         # Input
         input_frame = tk.LabelFrame(
@@ -274,7 +280,7 @@ class SubstitutionGUI:
         self.input_text = tk.Text(
             input_frame, height=6, font=("Consolas", 11), bg="#ffffff", fg="#000000"
         )
-        self.input_text.pack(fill="both", expand=True)
+        self.input_text.pack(fill="both", expand=True, pady=(10, 0))
 
         # Analisis
         analysis_frame = tk.LabelFrame(
@@ -291,21 +297,21 @@ class SubstitutionGUI:
             bg="#4caf50",
             fg="white",
             command=self.analyze,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
         tk.Button(
             analysis_frame,
             text="Hint Lanjutan",
-            bg="#81c784",
+            bg="#4caf50",
             fg="white",
             command=self.advanced_hint,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
         tk.Button(
             analysis_frame,
             text="Histogram (cipher)",
-            bg="#66bb6a",
+            bg="#4caf50",
             fg="white",
             command=self.show_histogram_cipher,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
 
         # Attack
         attack_frame = tk.LabelFrame(
@@ -322,21 +328,21 @@ class SubstitutionGUI:
             bg="#fb8c00",
             fg="white",
             command=self.run_caesar_attack,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
         tk.Button(
             attack_frame,
             text="Coba Tebakan Acak",
             bg="#f57c00",
             fg="white",
             command=self.run_random_attack,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
         tk.Button(
             attack_frame,
             text="Optimasi Otomatis",
             bg="#ef6c00",
             fg="white",
             command=self.run_auto_tune,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=3, pady=10)
 
         # Mapping manual
         map_frame = tk.LabelFrame(
@@ -349,20 +355,20 @@ class SubstitutionGUI:
         map_frame.pack(fill="x", pady=5)
         self.cipher_var = tk.StringVar()
         self.plain_var = tk.StringVar()
-        ttk.Label(map_frame, text="Cipher").grid(row=0, column=0, padx=2, pady=2)
+        ttk.Label(map_frame, text="Cipher").grid(row=0, column=0, padx=2, pady=(10, 2))
         ttk.Combobox(
             map_frame,
             textvariable=self.cipher_var,
             values=list(string.ascii_uppercase),
             width=5,
-        ).grid(row=0, column=1, padx=2, pady=2)
-        ttk.Label(map_frame, text="→ Plain").grid(row=1, column=0, padx=2, pady=2)
+        ).grid(row=0, column=1, padx=2, pady=(10, 2))
+        ttk.Label(map_frame, text="→ Plain").grid(row=1, column=0, padx=2, pady=(2, 10))
         ttk.Combobox(
             map_frame,
             textvariable=self.plain_var,
             values=list(string.ascii_uppercase),
             width=5,
-        ).grid(row=1, column=1, padx=2, pady=2)
+        ).grid(row=1, column=1, padx=2, pady=(2, 10))
         tk.Button(
             map_frame,
             text="Map",
@@ -370,7 +376,7 @@ class SubstitutionGUI:
             fg="white",
             width=10,
             command=self.update_mapping,
-        ).grid(row=0, column=4, padx=2, pady=2)
+        ).grid(row=0, column=4, padx=(10, 2), pady=(10, 2))
         tk.Button(
             map_frame,
             text="Reset",
@@ -378,7 +384,7 @@ class SubstitutionGUI:
             fg="white",
             width=10,
             command=self.reset_mapping,
-        ).grid(row=0, column=5, padx=2, pady=2)
+        ).grid(row=0, column=5, padx=2, pady=(10, 2))
         tk.Button(
             map_frame,
             text="Simpan",
@@ -386,7 +392,7 @@ class SubstitutionGUI:
             fg="white",
             width=10,
             command=self.save_mapping,
-        ).grid(row=1, column=4, padx=2, pady=2)
+        ).grid(row=1, column=4, padx=(10, 2), pady=(2, 10))
         tk.Button(
             map_frame,
             text="Muat",
@@ -394,7 +400,23 @@ class SubstitutionGUI:
             fg="white",
             width=10,
             command=self.load_mapping,
-        ).grid(row=1, column=5, padx=2, pady=2)
+        ).grid(row=1, column=5, padx=2, pady=(2, 10))
+        tk.Button(
+            map_frame,
+            text="Gunakan Shift dari Mapping",
+            bg="#009688",
+            fg="white",
+            width=25,
+            command=self.preview_shift_from_mapping,
+        ).grid(row=0, column=6, pady=(10, 4))
+        tk.Button(
+            map_frame,
+            text="Gunakan Kunci Substitusi",
+            bg="#009688",
+            fg="white",
+            width=25,
+            command=self.use_direct_key,
+        ).grid(row=1, column=6, padx=2, pady=(2, 10))
 
         # Preview manual
         preview_frame = tk.LabelFrame(
@@ -408,7 +430,7 @@ class SubstitutionGUI:
         self.output_text = tk.Text(
             preview_frame, height=10, bg="#fffde7", fg="#000000", font=("Consolas", 11)
         )
-        self.output_text.pack(fill="both", expand=True)
+        self.output_text.pack(fill="both", expand=True, pady=(10, 0))
 
         # Panel kanan hasil
         result_frame = tk.LabelFrame(
@@ -422,7 +444,7 @@ class SubstitutionGUI:
         self.attack_text = tk.Text(
             result_frame, height=16, bg="#fff8e1", fg="#000000", font=("Consolas", 11)
         )
-        self.attack_text.pack(fill="both", expand=True)
+        self.attack_text.pack(fill="both", expand=True, pady=(10, 0))
 
         ana_frame = tk.Frame(right, bg="#fff8e1")
         ana_frame.pack(fill="x", pady=4)
@@ -501,7 +523,7 @@ class SubstitutionGUI:
 
         counter, total = frequency_analysis(self.ciphertext)
 
-        # Urutkan berdasarkan frekuensi
+        # Sort berdasarkan frekuensi
         items = sorted(counter.items(), key=lambda x: -x[1])
         letters = [l for l, _ in items]
         values = [counter[l] for l in letters]
@@ -509,12 +531,12 @@ class SubstitutionGUI:
         plt.figure(figsize=(12, 5))
         bars = plt.bar(letters, values, color="#4C78A8")
 
-        # Warnai top-5
+        # Mewarnai top 5
         for i, bar in enumerate(bars):
             if i < 5:
                 bar.set_color("#f28e2b")
 
-        # Tambahkan label persentase
+        # Label persentase
         for i, v in enumerate(values):
             plt.text(i, v + 0.5, f"{v/total*100:.1f}%", ha="center", fontsize=8)
 
@@ -522,7 +544,7 @@ class SubstitutionGUI:
         plt.xlabel("Huruf")
         plt.ylabel("Jumlah")
 
-        # Overlay distribusi bahasa target
+        # Gambaran distribusi bahasa target
         lang = self.lang.get().upper()
         if lang == "EN":
             english_freq = {
@@ -613,12 +635,12 @@ class SubstitutionGUI:
             )
             return
 
-        # Preview berdasarkan mapping saat ini
+        # Preview mapping saat ini
         mapping_effective = dict(self.hint_mapping)
         mapping_effective.update(self.mapping)
         preview = apply_mapping(self.ciphertext, mapping_effective)
 
-        # Dataset sesuai bahasa
+        # Data menyesuaikan bahasa yang dipilih
         if self.lang.get().upper() == "ID":
             trigram_list = COMMON_TRIGRAMS_ID
         else:
@@ -698,24 +720,88 @@ class SubstitutionGUI:
             messagebox.showerror("Error", f"Gagal memuat mapping: {e}")
 
     # ====== Attack (progress bar di GUI) ======
+    def preview_shift_from_mapping(self):
+        # cek apakah user sudah isi mapping
+        c = ""
+        p = ""
+        if hasattr(self, "cipher_entry"):  # kalau pakai Entry
+            c = self.cipher_entry.get().upper()
+            p = self.plain_entry.get().upper()
+        elif hasattr(self, "cipher_var"):  # kalau masih pakai Combobox
+            c = self.cipher_var.get().upper()
+            p = self.plain_var.get().upper()
+
+        if not c or not p:
+            messagebox.showinfo(
+                "Info",
+                "Fitur ini hanya bisa dipakai bila Anda sudah menentukan minimal satu mapping Cipher → Plain.\n"
+                "Silakan isi dulu huruf Cipher dan huruf Plain di Mapping Manual.",
+            )
+            return
+
+        if c in string.ascii_uppercase and p in string.ascii_uppercase:
+            shift = (ord(c) - ord(p)) % 26
+            preview = caesar_decrypt(self.ciphertext, shift)
+            self.attack_preview = preview
+            self.attack_text.delete("1.0", "end")
+            self.attack_text.insert(
+                "1.0",
+                f"[Preview Caesar berdasarkan {c}->{p}, shift {shift}]\n\n{preview}",
+            )
+            self.set_status(f"Preview Caesar dibuat dengan shift {shift} dari {c}->{p}")
+        else:
+            messagebox.showerror("Error", "Isi Cipher dan Plain dengan huruf A–Z.")
+
     def run_caesar_attack(self):
         self.ciphertext = self.input_text.get("1.0", "end").strip()
         if not self.ciphertext:
             messagebox.showwarning("Peringatan", "Masukkan ciphertext terlebih dahulu.")
             return
-        best_shift, best_text, best_score, _ = caesar_attack(
-            self.ciphertext, lang=self.lang.get()
+
+        # Tanya user apakah mau input shift manual
+        choice = messagebox.askyesno(
+            "Caesar Attack",
+            "Apakah Anda ingin memasukkan shift secara manual?\n"
+            "Ya = input manual, Tidak = cari otomatis terbaik.",
         )
-        self.attack_preview = best_text
-        self.attack_mapping = {}  # Caesar tidak menghasilkan mapping substitusi penuh
-        self.attack_text.delete("1.0", "end")
-        self.attack_text.insert(
-            "1.0",
-            f"[Caesar shift {best_shift}, skor {best_score}]\n\n{self.attack_preview}",
-        )
-        self.set_status(
-            f"Caesar attack selesai. Shift terbaik: {best_shift} (skor {best_score})."
-        )
+
+        if choice:  # === Mode manual ===
+            try:
+                shift = simpledialog.askinteger(
+                    "Input Shift",
+                    "Masukkan nilai shift (boleh negatif untuk geser mundur):",
+                    minvalue=-25,
+                    maxvalue=25,
+                )
+                if shift is None:
+                    return
+            except Exception:
+                messagebox.showerror("Error", "Input shift tidak valid.")
+                return
+
+            preview = caesar_decrypt(self.ciphertext, shift)
+            self.attack_preview = preview
+            self.attack_mapping = {}
+            self.attack_text.delete("1.0", "end")
+            self.attack_text.insert(
+                "1.0", f"[Caesar shift {shift} (manual)]\n\n{self.attack_preview}"
+            )
+            self.set_status(f"Preview Caesar dengan shift {shift} ditampilkan.")
+
+        else:  # === Mode otomatis (brute force terbaik) ===
+            best_shift, best_text, best_score, _ = caesar_attack(
+                self.ciphertext, lang=self.lang.get()
+            )
+            self.attack_preview = best_text
+            self.attack_mapping = {}
+            self.attack_text.delete("1.0", "end")
+            self.attack_text.insert(
+                "1.0",
+                f"[Caesar shift {best_shift}, skor {best_score}]\n\n{self.attack_preview}",
+            )
+            self.set_status(
+                f"Caesar attack selesai. Shift terbaik: {best_shift} (skor {best_score})."
+            )
 
     def run_random_attack(self):
         self.ciphertext = self.input_text.get("1.0", "end").strip()
@@ -735,7 +821,7 @@ class SubstitutionGUI:
         except Exception:
             iterations = 12000
 
-        # Progress bar setup
+        # Progress bar
         self.progress.pack(fill="x", padx=6, pady=4)
         self.progress["maximum"] = iterations
         self.progress["value"] = 0
@@ -804,7 +890,7 @@ class SubstitutionGUI:
         except Exception:
             iterations = 15000
 
-        # Progress bar setup
+        # Progress bar
         self.progress.pack(fill="x", padx=6, pady=4)
         self.progress["maximum"] = iterations
         self.progress["value"] = 0
@@ -880,7 +966,7 @@ class SubstitutionGUI:
 
         counter, total = frequency_analysis(self.attack_preview)
 
-        # Urutkan berdasarkan frekuensi
+        # Sort berdasarkan frekuensi
         items = sorted(counter.items(), key=lambda x: -x[1])
         letters = [l for l, _ in items]
         values = [counter[l] for l in letters]
@@ -888,12 +974,12 @@ class SubstitutionGUI:
         plt.figure(figsize=(12, 5))
         bars = plt.bar(letters, values, color="#4C78A8")
 
-        # Warnai top-5
+        # Mewarnai top-5
         for i, bar in enumerate(bars):
             if i < 5:
                 bar.set_color("#f28e2b")
 
-        # Tambahkan label persentase
+        # Label persentase
         for i, v in enumerate(values):
             plt.text(i, v + 0.5, f"{v/total*100:.1f}%", ha="center", fontsize=8)
 
@@ -901,7 +987,7 @@ class SubstitutionGUI:
         plt.xlabel("Huruf")
         plt.ylabel("Jumlah")
 
-        # Overlay distribusi bahasa target
+        # Distribusi bahasa target berdasarkan pilihan
         lang = self.lang.get().upper()
         if lang == "EN":
             english_freq = {
@@ -1004,6 +1090,35 @@ class SubstitutionGUI:
         self.mapping.update(self.attack_mapping)
         self.update_preview_manual()
         self.set_status("Mapping attack digabungkan ke mapping manual.")
+
+    def use_direct_key(self):
+        key = simpledialog.askstring(
+            "Masukkan Kunci Substitusi",
+            "Masukkan 26 huruf (A–Z) sebagai kunci substitusi.\n"
+            "Contoh: QWERTYUIOPASDFGHJKLZXCVBNM\n"
+            "(Plain A→Q, B→W, dst.)",
+        )
+        if not key:
+            return
+
+        key = key.upper()
+        if len(key) != 26 or not all(ch in string.ascii_uppercase for ch in key):
+            messagebox.showerror("Error", "Kunci harus 26 huruf A–Z.")
+            return
+        if len(set(key)) != 26:
+            messagebox.showerror("Error", "Kunci tidak boleh ada huruf ganda.")
+            return
+
+        # Buat mapping cipher→plain (dibalik!)
+        letters = list(string.ascii_uppercase)
+        mapping = {}
+        for plain, cipher in zip(letters, key):
+            mapping[cipher] = plain
+
+        # Terapkan mapping
+        self.mapping = mapping
+        self.update_preview_manual()
+        self.set_status("Kunci substitusi diterapkan untuk dekripsi.")
 
 
 # =========================
