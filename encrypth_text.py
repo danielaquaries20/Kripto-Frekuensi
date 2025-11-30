@@ -171,7 +171,7 @@ class ModernCipherApp:
 
         tb.Button(button_frame, text="ENCRYPT & SINGLE PLOT",
                   command=self.run_single, bootstyle=SUCCESS,
-                  width=20).pack(side=tk.LEFT, padx=(0, 15))
+                  width=25).pack(side=tk.LEFT, padx=(0, 15))
 
         tb.Button(button_frame, text="ENCRYPT & DUAL PLOT",
                   command=self.run_dual, bootstyle=INFO,

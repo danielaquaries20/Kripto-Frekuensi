@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, simpledialog, filedialog
 import string, collections, random, json
 import matplotlib.pyplot as plt
 from tkinter import simpledialog
+import subprocess, sys, os
 
 
 # ===================================================== #
@@ -316,7 +317,7 @@ class SubstitutionGUI:
         # Attack
         attack_frame = tk.LabelFrame(
             left,
-            text="⚡ Percobaan Dekripsi",
+            text="⚡ Percobaan Dekripsi & Enkripsi",
             bg="#fff3e0",
             fg="#000000",
             font=("Segoe UI", 10, "bold"),
@@ -329,6 +330,7 @@ class SubstitutionGUI:
             fg="white",
             command=self.run_caesar_attack,
         ).pack(side="left", padx=3, pady=10)
+
         tk.Button(
             attack_frame,
             text="Coba Tebakan Acak",
@@ -343,6 +345,14 @@ class SubstitutionGUI:
             fg="white",
             command=self.run_auto_tune,
         ).pack(side="left", padx=3, pady=10)
+
+        tk.Button(
+            attack_frame,
+            text="Buka Aplikasi Enkripsi",
+            bg="#9c27b0",
+            fg="white",
+            command=self.open_encryption_app
+        ).pack(side="left", padx=3, pady=10)        
 
         # Mapping manual
         map_frame = tk.LabelFrame(
@@ -674,6 +684,53 @@ class SubstitutionGUI:
 
         messagebox.showinfo("Hint Lanjutan", msg)
 
+    # ====== Percobaan Dekripsi ======
+    def ask_shift_with_slider(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Pilih Shift Caesar")
+        dialog.grab_set()  # fokus ke dialog
+
+        tk.Label(dialog, text="Geser slider untuk memilih shift (-25 sampai 25)").pack(pady=10)
+
+        shift_var = tk.IntVar(value=0)
+        slider = tk.Scale(
+            dialog,
+            from_=-25, to=25,
+            orient="horizontal",
+            variable=shift_var,
+            length=300,
+            tickinterval=5
+        )
+        slider.pack(padx=10, pady=10)
+
+        result = {"shift": None}
+
+        def confirm():
+            result["shift"] = shift_var.get()
+            dialog.destroy()
+
+        tk.Button(dialog, text="OK", command=confirm).pack(pady=10)
+
+        dialog.wait_window()  # tunggu sampai dialog ditutup
+        return result["shift"]    
+
+    # ====== Mmebuka Aplikasi kedua lewat CMD ======
+    # def open_encryption_app(self):
+    #     try:
+    #         subprocess.Popen([sys.executable, "encrypth_text.py"])
+    #         self.set_status("Aplikasi enkripsi dibuka.")
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"Gagal membuka aplikasi enkripsi: {e}")
+
+    # ====== Mmebuka Aplikasi kedua lewat .exe ======
+    def open_encryption_app(self):
+        try:
+            exe_path = os.path.join(os.path.dirname(sys.executable), "encrypth_text.exe")
+            subprocess.Popen([exe_path])
+            self.set_status("Aplikasi enkripsi dibuka.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal membuka aplikasi enkripsi: {e}")
+
     # ====== Mapping manual ======
     def update_mapping(self):
         c = self.cipher_var.get().upper()
@@ -766,17 +823,8 @@ class SubstitutionGUI:
         )
 
         if choice:  # === Mode manual ===
-            try:
-                shift = simpledialog.askinteger(
-                    "Input Shift",
-                    "Masukkan nilai shift (boleh negatif untuk geser mundur):",
-                    minvalue=-25,
-                    maxvalue=25,
-                )
-                if shift is None:
-                    return
-            except Exception:
-                messagebox.showerror("Error", "Input shift tidak valid.")
+            shift = self.ask_shift_with_slider()
+            if shift is None:
                 return
 
             preview = caesar_decrypt(self.ciphertext, shift)
@@ -784,10 +832,10 @@ class SubstitutionGUI:
             self.attack_mapping = {}
             self.attack_text.delete("1.0", "end")
             self.attack_text.insert(
-                "1.0", f"[Caesar shift {shift} (manual)]\n\n{self.attack_preview}"
+                "1.0", f"[Caesar shift {shift} (manual via slider)]\n\n{self.attack_preview}"
             )
             self.set_status(f"Preview Caesar dengan shift {shift} ditampilkan.")
-
+            
         else:  # === Mode otomatis (brute force terbaik) ===
             best_shift, best_text, best_score, _ = caesar_attack(
                 self.ciphertext, lang=self.lang.get()
@@ -802,6 +850,24 @@ class SubstitutionGUI:
             self.set_status(
                 f"Caesar attack selesai. Shift terbaik: {best_shift} (skor {best_score})."
             )
+
+    def preview_caesar_shift(self):
+        self.ciphertext = self.input_text.get("1.0", "end").strip()
+        if not self.ciphertext: 
+            messagebox.showwarning("Peringatan", "Masukkan ciphertext terlebih dahulu.")
+            return
+
+        shift = self.shift_var.get()
+        preview = caesar_decrypt(self.ciphertext, shift)
+
+        self.attack_preview = preview
+        self.attack_mapping = {}
+        self.attack_text.delete("1.0", "end")
+        self.attack_text.insert(
+            "1.0",
+            f"[Caesar shift {shift} via slider]\n\n{self.attack_preview}"
+        )
+        self.set_status(f"Preview Caesar dengan shift {shift} ditampilkan.")
 
     def run_random_attack(self):
         self.ciphertext = self.input_text.get("1.0", "end").strip()

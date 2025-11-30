@@ -1,2 +1,6 @@
 /.venv
 /Trial
+/analysis_frequent_text.spec
+/encrypth_text.spec
+/build
+/dist

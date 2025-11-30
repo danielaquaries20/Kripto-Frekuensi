@@ -4,7 +4,8 @@ code:
 
 # Download Libs
 code:
-pip install matplotlib numpy
+pip install ttkbootstrap matplotlib numpy
+python -m pip install matplotlib numpy ttkbootstrap
 
 # Jalankan kode
 CMD 1 Code:
@@ -18,3 +19,10 @@ THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG.
 CRYPTOGRAPHY IS THE ART OF SECRET COMMUNICATION.
 FREQUENCY ANALYSIS HELPS TO BREAK SIMPLE SUBSTITUTION CIPHERS.
 LEARNING BY DOING MAKES THE PROCESS MORE FUN AND MEMORABLE.
+
+
+# Cara Build Aplikasi
+pip install pyinstaller
+
+pyinstaller --onefile --windowed analysis_frequent_text.py
+pyinstaller --onefile --windowed encrypth_text.py
